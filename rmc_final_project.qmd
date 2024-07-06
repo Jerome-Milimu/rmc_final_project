@@ -1,0 +1,299 @@
+---
+title: "World Population in 1800"
+format: dashboard
+theme: lux
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+# Load packages 
+#if(!require(pacman)) install.packages("pacman")
+pacman::p_load(tidyverse,
+               plotly,
+               here, 
+               bslib, 
+               bsicons, 
+               shiny, 
+               rgeoboundaries, 
+               rnaturalearth,
+               ggplot2,
+               countrycode, 
+               htmltools, 
+               reactable)
+
+```
+
+```{r}
+# Read in data
+pop_raw <- 
+  read_csv(here("data/pop.csv"))
+
+# glimpse(pop_raw)
+# 
+# head(pop_raw)
+
+pop_long <- 
+  pop_raw %>% 
+  pivot_longer(cols = `1800`:`2100`,
+               names_to = "year",
+               values_to = "values")
+
+```
+
+```{r}
+# Convert values column to numeric
+pop_long <- 
+  pop_long %>%
+  mutate(values = case_when(
+    grepl("M$", values) ~ as.numeric(sub("M$", "", values)) * 1e6,
+    grepl("k$", values) ~ as.numeric(sub("k$", "", values)) * 1e3,
+    TRUE ~ as.numeric(values)
+  ))
+
+
+# Remove rows with NA values
+ pop_long <- 
+   pop_long %>% drop_na()
+```
+
+
+```{r}
+# Custom function to format numbers
+format_number <- function(x) {
+  if (x >= 1e3 & x < 1e6) {
+    return(paste0(round(x / 1e3, 1), "k"))
+  } else if (x >= 1e6) {
+    return(paste0(round(x / 1e6, 1), "M"))
+  } else {
+    return(as.character(x))
+  }
+}
+
+# # Example usage
+# numbers <- c(999, 1000, 2500, 500000, 6000000)
+# formatted_numbers <- sapply(numbers, format_number)
+# print(formatted_numbers)
+```
+
+
+```{r}
+# Extract countries and values
+lowest_population_1800_country <- 
+  pop_long %>% 
+  filter(year == 1800) %>% 
+  filter(values == min(values)) %>% 
+  pull(country)
+
+lowest_population_1800_population <- 
+  pop_long %>% 
+  filter(year == 1800) %>% 
+  filter(values == min(values)) %>% 
+  pull(values)
+
+
+# Filter the data for the year 2010
+pop_1800 <- 
+  pop_long %>% filter(year == 1800)
+
+# Calculate the median value
+median_value_1800 <- 
+  median(pop_1800$values)
+
+# Filter the data to get the row(s) with the median value
+median_population_1800_country <- 
+  pop_1800 %>% 
+  filter(values == median_value_1800) %>% 
+  pull(country)
+
+median_population_1800_population <- 
+  pop_1800 %>% 
+  filter(values == median_value_1800) %>% 
+  pull(values)
+  
+median_population_1800_population <-
+  format_number(median_population_1800_population)
+
+
+highest_population_1800_country <- 
+  pop_long %>% 
+  filter(year == 1800) %>% 
+  filter(values == max(values)) %>% 
+  pull(country)
+
+highest_population_1800_population <- 
+  pop_long %>% 
+  filter(year == 1800) %>% 
+  filter(values == max(values)) %>% 
+  pull(values)
+
+highest_population_1800_population <-
+  format_number(highest_population_1800_population)
+
+```
+
+```{r}
+country_shapes <- 
+  rnaturalearth::ne_countries()
+
+# ggplot(country_shapes) +
+#   geom_sf()
+
+pop_1800 <- 
+  pop_long %>% 
+  filter(year == 1800)
+
+pop_1800 <- 
+pop_1800 %>% 
+  mutate(
+    country_code = countrycode(country, 
+                    "country.name", 
+                    "iso3c"))
+# pop_long
+# 
+# setdiff(pop_long$country_code, country_shapes$adm0_a3)
+
+gap_map <- 
+  left_join(country_shapes,
+          pop_1800,
+          by = c("adm0_a3" = "country_code")) %>% 
+  mutate(tooltip_label = paste(country,
+                               round(values,1),
+                               sep = ": "
+                               )) %>% 
+  ggplot() +
+  geom_sf(aes(fill = values,
+              text = tooltip_label)) +
+  theme_void() +
+  scale_fill_continuous(trans = "reverse") +
+  theme(legend.position = "none")
+
+gap_map_ggplotly <- 
+  ggplotly(gap_map,
+         tooltip = "text")
+```
+
+
+# HOME
+
+## Row 1 {height=25%}
+
+```{r}
+value_box(
+  title = "Lowest Population in 1800",
+  value = lowest_population_1800_population,
+  showcase = bsicons::bs_icon("heart"),
+  theme = value_box_theme(bg = "#008080"),
+  p(paste0("(", lowest_population_1800_country, ")"))
+)
+```
+
+
+```{r}
+value_box(
+  title = "Median Population in 1800",
+  value = median_population_1800_population,
+  showcase = bsicons::bs_icon("thermometer"),
+  theme = value_box_theme(bg = "#008080"),
+  p(paste0("(",median_population_1800_country, ")"))
+)
+```
+
+
+```{r}
+value_box(
+  title = "Highest Population in 1800",
+  value = highest_population_1800_population,
+  showcase = bsicons::bs_icon("thermometer"),
+  theme = value_box_theme(bg = "#008080"),
+  p(paste0("(",highest_population_1800_country, ")"))
+)
+```
+
+
+## Row 2 {height=75%}
+
+
+### {width=60%}
+
+
+```{r title = "Map of Countries Population in 1800"}
+gap_map_ggplotly
+```
+
+```{r}
+top_15_pop_1800 <- 
+  pop_1800 %>% 
+  arrange(desc(values)) %>% 
+  head(15) %>%
+  mutate(tooltip_label = paste(country,
+                               round(values,1),
+                               sep = ": "
+                               )) %>% 
+  ggplot(aes(y = reorder(country, values),
+             x = values,
+             fill = values,
+             text = tooltip_label)) +
+  geom_col()+
+  geom_text(aes(label = round(values, 1)),
+            nudge_x = -10,
+            color = "black") +
+  labs(y = "Country",
+       x = "Population") +
+  scale_fill_continuous(trans = "reverse") +
+  theme(legend.position = "none")
+
+
+top_15_pop_1800_ggplotly <- 
+  ggplotly(top_15_pop_1800,
+           tooltip = "text")
+
+
+```
+
+
+### {width=40%}
+
+
+```{r title = "Top 15 Countries by Population in 1800"}
+top_15_pop_1800_ggplotly
+```
+
+
+
+
+# DOWNLOAD DATA
+
+The data used in this dashboard is shown below and can be downloaded as a CSV.
+
+```{r}
+
+htmltools::browsable(
+  tagList(
+    reactable(pop_raw,
+              elementId = "population-table",
+              searchable = T,
+              filterable = T),
+  
+    tags$button("Download as CSV", 
+                onclick = 
+                  "Reactable.downloadDataCSV('population-table')")
+  )
+)
+
+
+```
+
+
+# ABOUT
+
+This data comes from the r `gapminder` package and is originally sourced from the Gapminder Foundation.
+
+Gapminder Foundation is a non-profit venture registered in Stockholm, Sweden, that promotes sustainable global development and achievement of the United Nations Millennium Development Goals by increased use and understanding of statistics and other information about social, economic, and environmental development at local, national, and global levels.
+
+Gapminder was founded in 2005 by Ola Rosling, Anna Rosling Rönnlund, and Hans Rosling. The name Gapminder was derived from the "Mind the Gap" warning messages on the London Underground.
+
+An example of Hans Rosling's videos is shown below:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/hVimVzgtD6w?si=j0LDxdS-EUQHAnRh" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
