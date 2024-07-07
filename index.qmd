@@ -190,7 +190,7 @@ gap_map_ggplotly <-
 value_box(
   title = "Lowest Population in 1800",
   value = lowest_population_1800_population,
-  showcase = bsicons::bs_icon("heart"),
+  showcase = bsicons::bs_icon("thermometer-low"),
   theme = value_box_theme(bg = "#008080"),
   p(paste0("(", lowest_population_1800_country, ")"))
 )
@@ -200,7 +200,7 @@ value_box(
 value_box(
   title = "Median Population in 1800",
   value = median_population_1800_population,
-  showcase = bsicons::bs_icon("thermometer"),
+  showcase = bsicons::bs_icon("thermometer-half"),
   theme = value_box_theme(bg = "#008080"),
   p(paste0("(",median_population_1800_country, ")"))
 )
@@ -210,7 +210,7 @@ value_box(
 value_box(
   title = "Highest Population in 1800",
   value = highest_population_1800_population,
-  showcase = bsicons::bs_icon("thermometer"),
+  showcase = bsicons::bs_icon("thermometer-high"),
   theme = value_box_theme(bg = "#008080"),
   p(paste0("(",highest_population_1800_country, ")"))
 )
